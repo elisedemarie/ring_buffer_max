@@ -1,32 +1,9 @@
-use std::{
-    collections::VecDeque,
-    fmt::{self, Debug, Formatter},
-};
+use std::{collections::VecDeque, fmt::Debug};
 
-use ordered_float::OrderedFloat;
-
-#[derive(Clone, Copy)]
-struct BufferElement {
+#[derive(Clone, Copy, Debug)]
+struct BufferElement<F: PartialOrd + Copy + Debug> {
     index: usize,
-    value: OrderedFloat<f32>,
-}
-
-impl Debug for BufferElement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BufferElement")
-            .field("index", &self.index)
-            .field("value", &self.value.0)
-            .finish()
-    }
-}
-
-impl Default for BufferElement {
-    fn default() -> Self {
-        BufferElement {
-            index: 0,
-            value: 0.0.into(),
-        }
-    }
+    value: F,
 }
 
 /// Data structure to keep track of the max value over a ring buffer.
@@ -38,13 +15,13 @@ impl Default for BufferElement {
 /// This keeps the deque sorted and set to only the buffer giving
 /// efficiently returning of the max value.
 #[derive(Clone, Debug)]
-pub struct PeakDetector {
-    deque: VecDeque<BufferElement>,
+pub struct MaxDetector<F: PartialOrd + Copy + Debug> {
+    deque: VecDeque<BufferElement<F>>,
     buffer_size: usize,
     next_index: usize,
 }
 
-impl PeakDetector {
+impl<F: PartialOrd + Copy + Debug> MaxDetector<F> {
     pub fn new(buffer_size: usize) -> Self {
         Self {
             buffer_size,
@@ -54,11 +31,10 @@ impl PeakDetector {
     }
 
     /// Add new element to buffer and return highest value.
-    pub fn next(&mut self, value: f32) -> f32 {
+    pub fn next(&mut self, value: F) -> F {
         let deque = &mut self.deque;
         let buffer_size = self.buffer_size;
         let next_index = self.next_index;
-        let value = OrderedFloat(value);
         // Remove values no longer in the buffer.
         // An element will only stay in the buffer long enough to require removal if its value is
         // the max value.
@@ -95,28 +71,24 @@ impl PeakDetector {
         // Update next index in ring buffer.
         self.next_index = (next_index + 1) % buffer_size;
         // Return max value.
-        deque.back().unwrap().value.into_inner()
+        deque.back().unwrap().value
     }
 
-    #[allow(dead_code)]
     /// Get current max value in buffer.
-    pub fn current(&self) -> f32 {
-        self.deque
-            .back()
-            .unwrap_or(&BufferElement::default())
-            .value
-            .into_inner()
+    pub fn current(&self) -> Option<F> {
+        let value = self.deque.back()?;
+        Some(value.value)
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::PeakDetector;
+    use super::MaxDetector;
 
     #[test]
     fn tracks_max_ascending_list() {
         let array = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5];
-        let mut detector = PeakDetector::new(10);
+        let mut detector = MaxDetector::new(10);
         let detected_maxes = array.map(|it| detector.next(it));
         assert_eq!(detected_maxes, array);
     }
@@ -124,7 +96,7 @@ mod test {
     #[test]
     fn tracks_max_descending_list() {
         let array = [0.5, 0.4, 0.3, 0.2, 0.1];
-        let mut detector = PeakDetector::new(10);
+        let mut detector = MaxDetector::new(10);
         let detected_maxes = array.map(|it| detector.next(it));
         assert_eq!(detected_maxes, [0.5; 5])
     }
@@ -132,39 +104,61 @@ mod test {
     #[test]
     fn max_outside_of_buffer_is_removed() {
         let array = [0.5, 0.4, 0.3, 0.2, 0.1];
-        let mut detector = PeakDetector::new(4);
+        let mut detector = MaxDetector::new(4);
         for value in array {
             detector.next(value);
         }
-        let expected = 0.4;
+        let expected = Some(0.4);
         assert_eq!(detector.current(), expected)
     }
 
     #[test]
     fn detector_handles_array_larger_than_buffer() {
         let array = [0.8, 0.1, 0.3, 0.2, 0.1, 0.6, 0.2];
-        let mut detector = PeakDetector::new(4);
+        let mut detector = MaxDetector::new(4);
         for value in array {
             detector.next(value);
         }
-        let expected = 0.6;
+        let expected = Some(0.6);
+        assert_eq!(detector.current(), expected)
+    }
+
+    #[test]
+    fn detector_handles_usize() {
+        let array = [2, 5, 1, 0, 2, 3, 1, 0];
+        let mut detector = MaxDetector::<usize>::new(4);
+        for value in array {
+            detector.next(value);
+        }
+        let expected = Some(3);
+        assert_eq!(detector.current(), expected)
+    }
+
+    #[test]
+    fn detector_handles_negatives() {
+        let array = [2, -5, 1, 0, -2, 3, -1, 0];
+        let mut detector = MaxDetector::<isize>::new(4);
+        for value in array {
+            detector.next(value);
+        }
+        let expected = Some(3);
         assert_eq!(detector.current(), expected)
     }
 
     #[test]
     fn new_max_is_detected() {
         let array = [0.5, 0.0, 0.1, 0.0, 0.8];
-        let mut detector = PeakDetector::new(10);
+        let mut detector = MaxDetector::new(10);
         for value in array {
             detector.next(value);
         }
-        let expected = 0.8;
+        let expected = Some(0.8);
         assert_eq!(detector.current(), expected);
     }
 
     #[test]
-    fn empty_buffer_returns_0() {
-        let detector = PeakDetector::new(10);
-        assert_eq!(detector.current(), 0.0);
+    fn empty_buffer_returns_none() {
+        let detector = MaxDetector::<f32>::new(10);
+        assert_eq!(detector.current(), None);
     }
 }
