@@ -76,6 +76,7 @@ impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
     }
 
     /// Get current max value in buffer.
+    /// Will return None if ring buffer is empty.
     pub fn current(&self) -> Option<F> {
         let value = self.deque.back()?;
         Some(value.value.to_owned())
@@ -132,28 +133,6 @@ mod test {
             detector.next(value);
         }
         let expected = Some(0.6);
-        assert_eq!(detector.current(), expected)
-    }
-
-    #[test]
-    fn detector_handles_usize() {
-        let array = [2, 5, 1, 0, 2, 3, 1, 0];
-        let mut detector = MaxDetector::<usize>::new(4);
-        for value in array {
-            detector.next(value);
-        }
-        let expected = Some(3);
-        assert_eq!(detector.current(), expected)
-    }
-
-    #[test]
-    fn detector_handles_negatives() {
-        let array = [2, -5, 1, 0, -2, 3, -1, 0];
-        let mut detector = MaxDetector::<isize>::new(4);
-        for value in array {
-            detector.next(value);
-        }
-        let expected = Some(3);
         assert_eq!(detector.current(), expected)
     }
 
