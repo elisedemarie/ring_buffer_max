@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, fmt::Debug};
 
-#[derive(Clone, Copy, Debug)]
-struct BufferElement<F: PartialOrd + Copy + Debug> {
+#[derive(Clone, Debug)]
+struct BufferElement<F: PartialOrd + Clone + Debug> {
     index: usize,
     value: F,
 }
@@ -14,14 +14,15 @@ struct BufferElement<F: PartialOrd + Copy + Debug> {
 ///
 /// This keeps the deque sorted and set to only the buffer giving
 /// efficiently returning of the max value.
+/// If two values are equal in their ordering, the newest value will be kept.
 #[derive(Clone, Debug)]
-pub struct MaxDetector<F: PartialOrd + Copy + Debug> {
+pub struct MaxDetector<F: PartialOrd + Clone + Debug> {
     deque: VecDeque<BufferElement<F>>,
     buffer_size: usize,
     next_index: usize,
 }
 
-impl<F: PartialOrd + Copy + Debug> MaxDetector<F> {
+impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
     pub fn new(buffer_size: usize) -> Self {
         Self {
             buffer_size,
@@ -71,19 +72,30 @@ impl<F: PartialOrd + Copy + Debug> MaxDetector<F> {
         // Update next index in ring buffer.
         self.next_index = (next_index + 1) % buffer_size;
         // Return max value.
-        deque.back().unwrap().value
+        deque.back().unwrap().value.to_owned()
     }
 
     /// Get current max value in buffer.
     pub fn current(&self) -> Option<F> {
         let value = self.deque.back()?;
-        Some(value.value)
+        Some(value.value.to_owned())
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::MaxDetector;
+
+    #[derive(PartialEq, Debug, Clone)]
+    struct StringStruct {
+        value: String,
+    }
+
+    impl PartialOrd for StringStruct {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.value.len().cmp(&other.value.len()))
+        }
+    }
 
     #[test]
     fn tracks_max_ascending_list() {
@@ -160,5 +172,47 @@ mod test {
     fn empty_buffer_returns_none() {
         let detector = MaxDetector::<f32>::new(10);
         assert_eq!(detector.current(), None);
+    }
+
+    #[test]
+    fn detector_handles_custom_type() {
+        let values = [
+            StringStruct {
+                value: "abc".into(),
+            },
+            StringStruct { value: "a".into() },
+            StringStruct { value: "ab".into() },
+        ];
+
+        let mut detector = MaxDetector::new(5);
+        for value in values {
+            detector.next(value);
+        }
+        let expected = Some(StringStruct {
+            value: "abc".into(),
+        });
+        assert_eq!(detector.current(), expected);
+    }
+
+    #[test]
+    fn detector_keeps_newest_of_equal_values() {
+        let values = [
+            StringStruct {
+                value: "abc".into(),
+            },
+            StringStruct { value: "a".into() },
+            StringStruct {
+                value: "def".into(),
+            },
+        ];
+
+        let mut detector = MaxDetector::new(5);
+        for value in values {
+            detector.next(value);
+        }
+        let expected = Some(StringStruct {
+            value: "def".into(),
+        });
+        assert_eq!(detector.current(), expected);
     }
 }
