@@ -1,7 +1,12 @@
 [package]
 name = "ring_buffer_max"
 version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-ordered-float = "5.0.0"
+edition = "2021"
+license = "MIT"
+description = "Keep track of the max value of ring buffer in linear time."
+readme = "README.md"
+homepage = "https://github.com/elisedemarie/max_ring_buffer"
+repository = "https://github.com/elisedemarie/max_ring_buffer"
+readme = "README.md"
+keywords = ["max", "ring buffer", "queue", "circular buffer"]
+categories = ["data-structures", "algorithms"]
