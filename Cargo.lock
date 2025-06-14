@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ring-buffer-max"
+name = "ring_buffer_max"
 version = "0.1.0"
 dependencies = [
  "ordered-float",
