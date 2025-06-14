@@ -7,5 +7,5 @@ description = "Keep track of the max value of ring buffer in linear time."
 readme = "README.md"
 homepage = "https://github.com/elisedemarie/max_ring_buffer"
 repository = "https://github.com/elisedemarie/max_ring_buffer"
-keywords = ["max", "ring buffer", "queue", "circular buffer"]
+keywords = ["max", "ring", "buffer", "queue", "circular"]
 categories = ["data-structures", "algorithms"]
