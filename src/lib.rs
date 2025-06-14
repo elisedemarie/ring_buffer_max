@@ -12,8 +12,8 @@ struct BufferElement<F: PartialOrd + Clone + Debug> {
 ///   - Remove all elements less than the new entry in value.
 ///   - Return the highest value.
 ///
-/// This keeps the deque sorted and set to only the buffer giving
-/// linear time returning of the max value.
+/// This keeps the deque sorted and containing only values within the buffer giving linear time
+/// returning of the max value.
 /// If two values are equal in their ordering, the newest value will be kept.
 #[derive(Clone, Debug)]
 pub struct MaxDetector<F: PartialOrd + Clone + Debug> {
@@ -31,7 +31,7 @@ impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
         }
     }
 
-    /// Add new element to buffer and return highest value.
+    /// Add new element to the buffer and return the highest value.
     pub fn next(&mut self, value: F) -> F {
         let deque = &mut self.deque;
         let buffer_size = self.buffer_size;
@@ -75,8 +75,8 @@ impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
         deque.back().unwrap().value.to_owned()
     }
 
-    /// Get current max value in buffer.
-    /// Will return None if ring buffer is empty.
+    /// Get current max value in the buffer.
+    /// Will return `None` if the buffer is empty.
     pub fn current(&self) -> Option<F> {
         let value = self.deque.back()?;
         Some(value.value.to_owned())
