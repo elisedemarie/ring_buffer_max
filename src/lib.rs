@@ -13,7 +13,7 @@ struct BufferElement<F: PartialOrd + Clone + Debug> {
 ///   - Return the highest value.
 ///
 /// This keeps the deque sorted and set to only the buffer giving
-/// efficiently returning of the max value.
+/// linear time returning of the max value.
 /// If two values are equal in their ordering, the newest value will be kept.
 #[derive(Clone, Debug)]
 pub struct MaxDetector<F: PartialOrd + Clone + Debug> {
