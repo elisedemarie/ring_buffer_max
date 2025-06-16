@@ -1,4 +1,29 @@
+//! Data structure to keep track of the max or min value over a ring buffer.
+//! Extension of a deque but for a new entry it will:
+//!   - Remove all elements that are now outside of the window.
+//!   - Remove all elements less (or greater for min) than the new entry in value.
+//!   - Return the highest (or lowest) value.
+//!
+//! This keeps the deque sorted and containing only values within the buffer giving linear time
+//! returning of the max/min value.
+//! If two values are equal in their ordering, the newest value will be kept.
+
 use std::{collections::VecDeque, fmt::Debug};
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PeakKind {
+    Maximum,
+    Minimum,
+}
+
+impl PeakKind {
+    fn compare<F: PartialOrd>(&self, a: &F, b: &F) -> bool {
+        match self {
+            Self::Maximum => a <= b,
+            Self::Minimum => a >= b,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 struct BufferElement<F: PartialOrd + Clone + Debug> {
@@ -6,28 +31,70 @@ struct BufferElement<F: PartialOrd + Clone + Debug> {
     value: F,
 }
 
-/// Data structure to keep track of the max value over a ring buffer.
-/// Extension of a deque but for a new entry it will:
-///   - Remove all elements that are now outside of the window.
-///   - Remove all elements less than the new entry in value.
-///   - Return the highest value.
-///
-/// This keeps the deque sorted and containing only values within the buffer giving linear time
-/// returning of the max value.
-/// If two values are equal in their ordering, the newest value will be kept.
+/// Keep track of the max value of a ring buffer.
 #[derive(Clone, Debug)]
 pub struct MaxDetector<F: PartialOrd + Clone + Debug> {
-    deque: VecDeque<BufferElement<F>>,
-    buffer_size: usize,
-    next_index: usize,
+    detector: PeakDetector<F>,
 }
 
 impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
     pub fn new(buffer_size: usize) -> Self {
         Self {
+            detector: PeakDetector::<F>::new(buffer_size, PeakKind::Maximum),
+        }
+    }
+
+    /// Add new element to the buffer and return the highest value.
+    pub fn next(&mut self, value: F) -> F {
+        self.detector.next(value)
+    }
+
+    /// Get current max value in the buffer.
+    /// Will return `None` if the buffer is empty.
+    pub fn current(&self) -> Option<F> {
+        self.detector.current()
+    }
+}
+
+/// Keep track of the min value of a ring buffer.
+#[derive(Clone, Debug)]
+pub struct MinDetector<F: PartialOrd + Clone + Debug> {
+    detector: PeakDetector<F>,
+}
+
+impl<F: PartialOrd + Clone + Debug> MinDetector<F> {
+    pub fn new(buffer_size: usize) -> Self {
+        Self {
+            detector: PeakDetector::<F>::new(buffer_size, PeakKind::Minimum),
+        }
+    }
+
+    /// Add new element to the buffer and return the lowest value.
+    pub fn next(&mut self, value: F) -> F {
+        self.detector.next(value)
+    }
+
+    /// Get current min value in the buffer.
+    /// Will return `None` if the buffer is empty.
+    pub fn current(&self) -> Option<F> {
+        self.detector.current()
+    }
+}
+#[derive(Clone, Debug)]
+struct PeakDetector<F: PartialOrd + Clone + Debug> {
+    deque: VecDeque<BufferElement<F>>,
+    buffer_size: usize,
+    next_index: usize,
+    peak_kind: PeakKind,
+}
+
+impl<F: PartialOrd + Clone + Debug> PeakDetector<F> {
+    pub fn new(buffer_size: usize, peak_kind: PeakKind) -> Self {
+        Self {
             buffer_size,
             deque: VecDeque::default(),
             next_index: 0,
+            peak_kind,
         }
     }
 
@@ -48,8 +115,8 @@ impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
                 index: next_index,
                 value,
             });
-        } else if deque.back().unwrap().value <= value {
-            // New value is larger than max value.
+        } else if self.peak_kind.compare(&deque.back().unwrap().value, &value) {
+            // new value is larger than max value.
             // Remove all other elements.
             deque.clear();
             deque.push_back(BufferElement {
@@ -61,7 +128,10 @@ impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
             // Remove all elements with a value less than or equal to this entry.
             // This is okay as this value is larger and newer.
             // This also keeps the queue sorted and only retaining relevant elements.
-            while value >= deque.front().unwrap().value {
+            while self
+                .peak_kind
+                .compare(&deque.front().unwrap().value, &value)
+            {
                 deque.pop_front();
             }
             deque.push_front(BufferElement {
@@ -85,7 +155,7 @@ impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
 
 #[cfg(test)]
 mod test {
-    use super::MaxDetector;
+    use super::{MaxDetector, MinDetector};
 
     #[derive(PartialEq, Debug, Clone)]
     struct StringStruct {
@@ -107,11 +177,27 @@ mod test {
     }
 
     #[test]
+    fn tracks_min_ascending_list() {
+        let array = [0.5, 0.4, 0.3, 0.2, 0.1, 0.0];
+        let mut detector = MinDetector::new(10);
+        let detected_maxes = array.map(|it| detector.next(it));
+        assert_eq!(detected_maxes, array);
+    }
+
+    #[test]
     fn tracks_max_descending_list() {
         let array = [0.5, 0.4, 0.3, 0.2, 0.1];
         let mut detector = MaxDetector::new(10);
         let detected_maxes = array.map(|it| detector.next(it));
         assert_eq!(detected_maxes, [0.5; 5])
+    }
+
+    #[test]
+    fn tracks_min_descending_list() {
+        let array = [0.1, 0.2, 0.3, 0.4, 0.5];
+        let mut detector = MinDetector::new(10);
+        let deteced_mins = array.map(|it| detector.next(it));
+        assert_eq!(deteced_mins, [0.1; 5]);
     }
 
     #[test]
