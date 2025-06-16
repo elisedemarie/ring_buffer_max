@@ -22,16 +22,6 @@ pub struct MaxDetector<F: PartialOrd + Clone + Debug> {
     next_index: usize,
 }
 
-impl<F: PartialOrd + Clone + Debug> Default for MaxDetector<F> {
-    fn default() -> Self {
-        Self {
-            deque: VecDeque::default(),
-            buffer_size: 64,
-            next_index: 0,
-        }
-    }
-}
-
 impl<F: PartialOrd + Clone + Debug> MaxDetector<F> {
     pub fn new(buffer_size: usize) -> Self {
         Self {
